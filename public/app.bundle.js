@@ -26552,22 +26552,6 @@ void main(void)\r
     }
   };
 
-  // src/visualizations/effects/BlendModeEffect.ts
-  var BlendModeEffect = class {
-    constructor(container, blendMode = BLEND_MODES.NORMAL) {
-      this.container = container;
-      this.blendMode = blendMode;
-      this.applyBlendMode();
-    }
-    applyBlendMode() {
-      this.container.blendMode = this.blendMode;
-    }
-    setBlendMode(blendMode) {
-      this.blendMode = blendMode;
-      this.applyBlendMode();
-    }
-  };
-
   // src/visualizations/effects/BackgroundEffect.ts
   var BackgroundEffect = class {
     constructor(container, color = "#000000") {
@@ -26612,7 +26596,6 @@ void main(void)\r
       this.rightOrigin = { x: 0, y: 0 };
     }
     setup() {
-      this.blendModeEffect = new BlendModeEffect(this.container, BLEND_MODES.SCREEN);
       this.backgroundEffect = new BackgroundEffect(this.container, this.config.backgroundColor);
       this.updateOrigins();
       window.addEventListener("resize", () => this.updateOrigins());
@@ -26673,8 +26656,7 @@ void main(void)\r
         origin: { ...origin }
       });
     }
-    setBlendMode(blendMode) {
-      this.blendModeEffect.setBlendMode(blendMode);
+    setBlendMode(_blendMode) {
     }
     setBackgroundColor(color) {
       this.backgroundEffect.setColor(color);
