@@ -1,6 +1,5 @@
 import * as PIXI from 'pixi.js';
 import { BaseVisualization } from './rendering/BaseVisualization';
-import { BlendModeEffect } from './effects/BlendModeEffect';
 import { BackgroundEffect } from './effects/BackgroundEffect';
 
 const LEFT_CIRCLE_COLOR = 0x7594C2;
@@ -20,13 +19,11 @@ interface Circle {
 
 export class RadiatingCircles extends BaseVisualization {
   private circles: Circle[] = [];
-  private blendModeEffect!: BlendModeEffect;
   private backgroundEffect!: BackgroundEffect;
   private leftOrigin = { x: 0, y: 0 };
   private rightOrigin = { x: 0, y: 0 };
 
   protected setup(): void {
-    this.blendModeEffect = new BlendModeEffect(this.container, PIXI.BLEND_MODES.SCREEN);
     this.backgroundEffect = new BackgroundEffect(this.container, this.config.backgroundColor);
     this.updateOrigins();
     window.addEventListener('resize', () => this.updateOrigins());
@@ -93,8 +90,8 @@ export class RadiatingCircles extends BaseVisualization {
     });
   }
 
-  setBlendMode(blendMode: number): void {
-    this.blendModeEffect.setBlendMode(blendMode);
+  setBlendMode(_blendMode: number): void {
+    // No-op: blend mode is now set per-graphics
   }
 
   setBackgroundColor(color: string): void {
