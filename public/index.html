@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIDI Visualizer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .connected {
+            background: #2ecc71;
+        }
+
+        .disconnected {
+            background: #e74c3c;
+        }
+
+        .visualizer {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+
+        .key {
+            aspect-ratio: 1;
+            background: #2c2c2c;
+            border-radius: 4px;
+            transition: all 0.1s ease;
+        }
+
+        .key.active {
+            background: #3498db;
+            transform: scale(0.95);
+        }
+
+        .midi-data {
+            background: #2c2c2c;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            overflow-x: auto;
+        }
+
+        .midi-data pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+
+        .controls {
+            background: #2c2c2c;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .controls select {
+            padding: 8px;
+            border-radius: 4px;
+            background: #fff;
+            border: none;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+
+        .controls label {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>MIDI Visualizer</h1>
+            <div id="status" class="status disconnected">Disconnected</div>
+            <div style="margin-top: 10px;">
+                <a href="visualizer.html" target="_blank" style="color:#3498db; font-weight:bold; text-decoration:underline;">Open Visualizer View in New Tab</a>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <label for="viz-select">Visualization:</label>
+            <select id="viz-select">
+                <option value="circlesquares">Circle Squares</option>
+                <option value="radiating-circles">Radiating Circles</option>
+            </select>
+        </div>
+        
+        <div class="visualizer" id="visualizer"></div>
+        
+        <div class="midi-data">
+            <h2>Recent MIDI Data</h2>
+            <div id="midiFeed" style="font-family:monospace; font-size:14px; line-height:1.4;"></div>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:8080');
+        const status = document.getElementById('status');
+        const visualizer = document.getElementById('visualizer');
+        const midiFeed = document.getElementById('midiFeed');
+        const FEED_SIZE = 20;
+        let feed = [];
+
+        // Create visualizer keys
+        for (let i = 0; i < 16; i++) {
+            const key = document.createElement('div');
+            key.className = 'key';
+            visualizer.appendChild(key);
+        }
+
+        ws.onopen = () => {
+            status.textContent = 'Connected';
+            status.className = 'status connected';
+        };
+
+        ws.onclose = () => {
+            status.textContent = 'Disconnected';
+            status.className = 'status disconnected';
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // Skip processing if it's a visualization control message
+            if (data.type === 'visualization_change') return;
+            
+            // Add new event to the top of the feed
+            feed.unshift(data);
+            if (feed.length > FEED_SIZE) feed.pop();
+            midiFeed.innerHTML = feed.map(d => {
+                const [status, note, velocity] = d.message;
+                let type = 'Other';
+                if ((status & 0xF0) === 144 && velocity > 0) type = 'Note On';
+                else if ((status & 0xF0) === 128 || ((status & 0xF0) === 144 && velocity === 0)) type = 'Note Off';
+                return `<div><b>${d.portName ? d.portName + ': ' : ''}</b><span style="color:#3498db;">${type}</span> ${JSON.stringify(d.message)} <span style="color:#888; font-size:12px;">${new Date(d.timestamp).toLocaleTimeString()}</span></div>`;
+            }).join('');
+
+            // Update visualizer
+            const [status, note, velocity] = data.message;
+            if (status === 144) { // Note on
+                const key = visualizer.children[note % 16];
+                key.classList.add('active');
+                key.style.backgroundColor = `hsl(${(note * 15) % 360}, 70%, 60%)`;
+                setTimeout(() => {
+                    key.classList.remove('active');
+                }, 100);
+            }
+        };
+
+        // Set up visualization selector
+        const vizSelect = document.getElementById('viz-select');
+        vizSelect.addEventListener('change', (e) => {
+            // Send visualization change to all connected clients
+            ws.send(JSON.stringify({
+                type: 'visualization_change',
+                visualization: e.target.value
+            }));
+        });
+    </script>
+</body>
+</html> 
