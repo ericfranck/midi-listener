@@ -26585,15 +26585,18 @@ void main(void)\r
   // src/visualizations/RadiatingCircles.ts
   var LEFT_CIRCLE_COLOR = 7705794;
   var RIGHT_CIRCLE_COLOR = 11951489;
+  var CENTER_CIRCLE_COLOR = 16765286;
   var ANIMATION_DURATION = 2e4;
   var LEFT_CIRCLE_NOTE = 36;
   var RIGHT_CIRCLE_NOTE = 40;
+  var CENTER_CIRCLE_NOTE = 42;
   var RadiatingCircles = class extends BaseVisualization {
     constructor() {
       super(...arguments);
       this.circles = [];
       this.leftOrigin = { x: 0, y: 0 };
       this.rightOrigin = { x: 0, y: 0 };
+      this.centerOrigin = { x: 0, y: 0 };
     }
     setup() {
       this.backgroundEffect = new BackgroundEffect(this.container, this.config.backgroundColor);
@@ -26605,8 +26608,10 @@ void main(void)\r
       const height = this.app.renderer.height;
       const spacing = width / 3;
       const centerX = width / 2;
-      this.leftOrigin = { x: centerX - spacing / 2, y: height / 2 };
-      this.rightOrigin = { x: centerX + spacing / 2, y: height / 2 };
+      const centerY = height / 2;
+      this.leftOrigin = { x: centerX - spacing / 2, y: centerY };
+      this.rightOrigin = { x: centerX + spacing / 2, y: centerY };
+      this.centerOrigin = { x: centerX, y: centerY };
     }
     render() {
       const now = performance.now();
@@ -26633,6 +26638,9 @@ void main(void)\r
       } else if (note === RIGHT_CIRCLE_NOTE) {
         origin = this.rightOrigin;
         color = RIGHT_CIRCLE_COLOR;
+      } else if (note === CENTER_CIRCLE_NOTE) {
+        origin = this.centerOrigin;
+        color = CENTER_CIRCLE_COLOR;
       } else {
         return;
       }

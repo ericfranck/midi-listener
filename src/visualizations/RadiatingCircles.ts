@@ -4,9 +4,11 @@ import { BackgroundEffect } from './effects/BackgroundEffect';
 
 const LEFT_CIRCLE_COLOR = 0x7594C2;
 const RIGHT_CIRCLE_COLOR = 0xB65D81;
+const CENTER_CIRCLE_COLOR = 0xFFD166; // Distinct color for center
 const ANIMATION_DURATION = 20000;
 const LEFT_CIRCLE_NOTE = 36;
 const RIGHT_CIRCLE_NOTE = 40;
+const CENTER_CIRCLE_NOTE = 42;
 
 interface Circle {
   graphics: PIXI.Graphics;
@@ -22,6 +24,7 @@ export class RadiatingCircles extends BaseVisualization {
   private backgroundEffect!: BackgroundEffect;
   private leftOrigin = { x: 0, y: 0 };
   private rightOrigin = { x: 0, y: 0 };
+  private centerOrigin = { x: 0, y: 0 };
 
   protected setup(): void {
     this.backgroundEffect = new BackgroundEffect(this.container, this.config.backgroundColor);
@@ -34,8 +37,10 @@ export class RadiatingCircles extends BaseVisualization {
     const height = this.app.renderer.height;
     const spacing = width / 3;
     const centerX = width / 2;
-    this.leftOrigin = { x: centerX - spacing / 2, y: height / 2 };
-    this.rightOrigin = { x: centerX + spacing / 2, y: height / 2 };
+    const centerY = height / 2;
+    this.leftOrigin = { x: centerX - spacing / 2, y: centerY };
+    this.rightOrigin = { x: centerX + spacing / 2, y: centerY };
+    this.centerOrigin = { x: centerX, y: centerY };
   }
 
   protected render(): void {
@@ -57,7 +62,7 @@ export class RadiatingCircles extends BaseVisualization {
   }
 
   addCircle(note: number, velocity: number, _x: number, _y: number): void {
-    // Only respond to notes 36 and 40
+    // Respond to notes 36, 40, and 42
     let origin, color;
     if (note === LEFT_CIRCLE_NOTE) {
       origin = this.leftOrigin;
@@ -65,6 +70,9 @@ export class RadiatingCircles extends BaseVisualization {
     } else if (note === RIGHT_CIRCLE_NOTE) {
       origin = this.rightOrigin;
       color = RIGHT_CIRCLE_COLOR;
+    } else if (note === CENTER_CIRCLE_NOTE) {
+      origin = this.centerOrigin;
+      color = CENTER_CIRCLE_COLOR;
     } else {
       return;
     }
