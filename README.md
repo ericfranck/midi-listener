@@ -22,16 +22,16 @@ A real-time, modular MIDI visualization tool built with TypeScript and PIXI.js. 
 ## Setup
 
 1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 2. **Set up your virtual MIDI port:**
    - **macOS**: Open Audio MIDI Setup > MIDI Studio > IAC Driver
    - **Windows**: Install and configure LoopMIDI
 3. **Start the development server (auto-reloads on changes):**
-   ```bash
+```bash
    npm run dev
-   ```
+```
 4. **Open your browser to** [http://localhost:3000/visualizer.html](http://localhost:3000/visualizer.html)
 
 ## Usage

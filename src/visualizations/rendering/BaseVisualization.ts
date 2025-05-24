@@ -32,4 +32,5 @@ export abstract class BaseVisualization implements Visualization {
 
   protected abstract setup(): void;
   protected abstract render(): void;
+  public abstract onMidiMessage(status: number, data1: number, data2: number, portName?: string): void;
 } 

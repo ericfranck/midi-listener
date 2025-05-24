@@ -1,6 +1,11 @@
 import * as PIXI from 'pixi.js';
 import { BaseVisualization } from './rendering/BaseVisualization';
+import { BackgroundEffect } from './effects/BackgroundEffect';
 
+// Background and blend mode constants
+const DEFAULT_BACKGROUND_COLOR = '#ED6A5A';
+
+// Shape colors and sizes
 const CIRCLE_BASE_COLOR = 0xED6A5A;
 const SQUARE_BASE_COLOR = 0x22333B;
 const CIRCLE_BASE_SIZE_PCT = 0.25;
@@ -34,12 +39,14 @@ export class Circlesquares extends BaseVisualization {
   private firstCircleDrawn = false;
   private firstSquareDrawn = false;
   private rotatingSquares: RotatingSquare[] = [];
+  private backgroundEffect!: BackgroundEffect;
 
   protected setup(): void {
     this.firstCircleDrawn = false;
     this.firstSquareDrawn = false;
     this.rotatingSquares = [];
     this.container.removeChildren();
+    this.backgroundEffect = new BackgroundEffect(this.container, this.app, this.config.backgroundColor || DEFAULT_BACKGROUND_COLOR);
   }
 
   addCircle(note: number, velocity: number, _x: number, _y: number): void {
@@ -106,10 +113,34 @@ export class Circlesquares extends BaseVisualization {
     });
   }
 
+  setBackgroundColor(color: string): void {
+    if (this.backgroundEffect) {
+      this.backgroundEffect.setColor(color);
+    }
+    this.config.backgroundColor = color;
+  }
+
+  resize(_width: number, _height: number): void {
+    if (this.backgroundEffect) {
+      this.backgroundEffect.resize(this.app.renderer.width, this.app.renderer.height);
+    }
+  }
+
+  public onMidiMessage(status: number, note: number, velocity: number, _portName?: string): void {
+    // Only handle Note On messages (status 144-159) with velocity > 0
+    if ((status & 0xF0) === 144 && velocity > 0) {
+      this.addCircle(note, velocity, 0, 0);
+    }
+  }
+
   cleanup(): void {
     this.container.removeChildren();
     this.rotatingSquares = [];
     this.firstCircleDrawn = false;
     this.firstSquareDrawn = false;
+    if (this.backgroundEffect) {
+      this.backgroundEffect.cleanup();
+    }
+    super.cleanup();
   }
 } 

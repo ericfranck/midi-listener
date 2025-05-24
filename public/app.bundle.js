@@ -26554,16 +26554,26 @@ void main(void)\r
 
   // src/visualizations/effects/BackgroundEffect.ts
   var BackgroundEffect = class {
-    constructor(container, color = "#000000") {
+    constructor(container, app, color = "#000000") {
       this.container = container;
+      this.app = app;
       this.color = this.parseColor(color);
       this.background = new Graphics();
-      this.container.addChildAt(this.background, 0);
+      if (this.container.children.length > 0) {
+        this.container.addChildAt(this.background, 0);
+      } else {
+        this.container.addChild(this.background);
+      }
       this.apply();
     }
     setColor(color) {
       this.color = this.parseColor(color);
       this.apply();
+    }
+    setZIndex(zIndex) {
+      if (this.background) {
+        this.background.zIndex = zIndex;
+      }
     }
     parseColor(color) {
       if (color.startsWith("#")) {
@@ -26572,24 +26582,48 @@ void main(void)\r
       return 0;
     }
     apply() {
+      const width = this.app.renderer.width;
+      const height = this.app.renderer.height;
       this.background.clear();
       this.background.beginFill(this.color);
-      this.background.drawRect(0, 0, this.container.width, this.container.height);
+      this.background.drawRect(0, 0, width, height);
       this.background.endFill();
+      if (this.background.parent && this.background.parent.getChildIndex(this.background) !== 0) {
+        this.background.parent.setChildIndex(this.background, 0);
+      }
     }
     resize(width, height) {
       this.apply();
     }
+    cleanup() {
+      if (this.background) {
+        this.container.removeChild(this.background);
+        this.background.destroy();
+      }
+    }
   };
 
   // src/visualizations/RadiatingCircles.ts
+  var DEFAULT_BACKGROUND_COLOR = "#DDDDDD";
   var LEFT_CIRCLE_COLOR = 7705794;
-  var RIGHT_CIRCLE_COLOR = 11951489;
-  var CENTER_CIRCLE_COLOR = 16765286;
-  var ANIMATION_DURATION = 2e4;
-  var LEFT_CIRCLE_NOTE = 36;
-  var RIGHT_CIRCLE_NOTE = 40;
-  var CENTER_CIRCLE_NOTE = 42;
+  var LEFT_CIRCLE_BLEND_MODE = BLEND_MODES.NORMAL;
+  var RIGHT_CIRCLE_COLOR = 8534581;
+  var RIGHT_CIRCLE_BLEND_MODE = BLEND_MODES.NORMAL;
+  var CENTER_CIRCLE_COLOR = 12424452;
+  var CENTER_CIRCLE_BLEND_MODE = BLEND_MODES.SCREEN;
+  var LEFT_CIRCLE_OPACITY = 1;
+  var RIGHT_CIRCLE_OPACITY = 1;
+  var CENTER_CIRCLE_OPACITY = 1;
+  var CENTER_CIRCLE_RADIUS_PCT = 0.25;
+  var CENTER_CIRCLE_SIZE_CHANGE = 0.05;
+  var CENTER_CIRCLE_MIN_SCALE = 0.4;
+  var CENTER_CIRCLE_MAX_SCALE = 2;
+  var EXPANDING_CIRCLE_STROKE_WIDTH_PCT = 0.01;
+  var EXPANDING_CIRCLE_MIN_STROKE_WIDTH = 0;
+  var IAC_BUS_1_PORT_NAME = "IAC Driver Bus 1";
+  var IAC_BUS_2_PORT_NAME = "IAC Driver Bus 2";
+  var IAC_BUS_3_PORT_NAME = "IAC Driver Bus 3";
+  var ANIMATION_DURATION = 35e3;
   var RadiatingCircles = class extends BaseVisualization {
     constructor() {
       super(...arguments);
@@ -26597,21 +26631,124 @@ void main(void)\r
       this.leftOrigin = { x: 0, y: 0 };
       this.rightOrigin = { x: 0, y: 0 };
       this.centerOrigin = { x: 0, y: 0 };
+      this.currentCenterScale = 1;
     }
     setup() {
-      this.backgroundEffect = new BackgroundEffect(this.container, this.config.backgroundColor);
+      this.container.removeChildren();
+      const bgColor = this.config.backgroundColor || DEFAULT_BACKGROUND_COLOR;
+      this.backgroundEffect = new BackgroundEffect(this.container, this.app, bgColor);
+      this.leftCirclesContainer = new Container();
+      this.rightCirclesContainer = new Container();
+      this.container.addChild(this.leftCirclesContainer);
+      this.container.addChild(this.rightCirclesContainer);
       this.updateOrigins();
-      window.addEventListener("resize", () => this.updateOrigins());
+      this.setupCenterCircle();
+    }
+    setupCenterCircle() {
+      if (this.centerCircle) {
+        this.container.removeChild(this.centerCircle);
+        this.centerCircle.destroy();
+      }
+      const { width, height } = this.app.renderer;
+      const baseRadius = Math.min(width, height) * CENTER_CIRCLE_RADIUS_PCT;
+      this.centerCircle = new Graphics();
+      this.centerCircle.beginFill(CENTER_CIRCLE_COLOR, CENTER_CIRCLE_OPACITY);
+      this.centerCircle.drawCircle(0, 0, baseRadius * this.currentCenterScale);
+      this.centerCircle.endFill();
+      this.centerCircle.x = this.centerOrigin.x;
+      this.centerCircle.y = this.centerOrigin.y;
+      this.centerCircle.blendMode = CENTER_CIRCLE_BLEND_MODE;
+      this.container.addChild(this.centerCircle);
     }
     updateOrigins() {
       const width = this.app.renderer.width;
       const height = this.app.renderer.height;
       const spacing = width / 3;
-      const centerX = width / 2;
-      const centerY = height / 2;
-      this.leftOrigin = { x: centerX - spacing / 2, y: centerY };
-      this.rightOrigin = { x: centerX + spacing / 2, y: centerY };
-      this.centerOrigin = { x: centerX, y: centerY };
+      const canvasCenterX = width / 2;
+      const canvasCenterY = height / 2;
+      this.leftOrigin = { x: canvasCenterX - spacing / 2, y: canvasCenterY };
+      this.rightOrigin = { x: canvasCenterX + spacing / 2, y: canvasCenterY };
+      this.centerOrigin = { x: canvasCenterX, y: canvasCenterY };
+      if (this.centerCircle) {
+        this.centerCircle.x = this.centerOrigin.x;
+        this.centerCircle.y = this.centerOrigin.y;
+      }
+    }
+    onMidiMessage(_status, _note, _velocity, portName) {
+      if (portName === IAC_BUS_3_PORT_NAME) {
+        const scaleRange = CENTER_CIRCLE_MAX_SCALE - CENTER_CIRCLE_MIN_SCALE;
+        const normalizedScale = (this.currentCenterScale - CENTER_CIRCLE_MIN_SCALE) / scaleRange;
+        const growthProbability = 1 - normalizedScale;
+        const shouldGrow = Math.random() < growthProbability;
+        const growOrShrink = shouldGrow ? 1 : -1;
+        this.currentCenterScale += CENTER_CIRCLE_SIZE_CHANGE * growOrShrink;
+        this.currentCenterScale = Math.max(
+          CENTER_CIRCLE_MIN_SCALE,
+          Math.min(CENTER_CIRCLE_MAX_SCALE, this.currentCenterScale)
+        );
+        const { width: width2, height: height2 } = this.app.renderer;
+        const baseRadius = Math.min(width2, height2) * CENTER_CIRCLE_RADIUS_PCT;
+        this.centerCircle.clear();
+        this.centerCircle.beginFill(CENTER_CIRCLE_COLOR, CENTER_CIRCLE_OPACITY);
+        this.centerCircle.drawCircle(0, 0, baseRadius * this.currentCenterScale);
+        this.centerCircle.endFill();
+        return;
+      }
+      let origin;
+      let color;
+      let blendMode;
+      let opacity;
+      let targetContainer;
+      if (portName === IAC_BUS_1_PORT_NAME) {
+        origin = this.leftOrigin;
+        color = LEFT_CIRCLE_COLOR;
+        blendMode = LEFT_CIRCLE_BLEND_MODE;
+        opacity = LEFT_CIRCLE_OPACITY;
+        targetContainer = this.leftCirclesContainer;
+      } else if (portName === IAC_BUS_2_PORT_NAME) {
+        origin = this.rightOrigin;
+        color = RIGHT_CIRCLE_COLOR;
+        blendMode = RIGHT_CIRCLE_BLEND_MODE;
+        opacity = RIGHT_CIRCLE_OPACITY;
+        targetContainer = this.rightCirclesContainer;
+      } else {
+        return;
+      }
+      if (!origin || color === void 0 || blendMode === void 0 || opacity === void 0 || !targetContainer) {
+        return;
+      }
+      const { width, height } = this.app.renderer;
+      const strokeWidth = Math.max(
+        EXPANDING_CIRCLE_MIN_STROKE_WIDTH,
+        Math.min(width, height) * EXPANDING_CIRCLE_STROKE_WIDTH_PCT
+      );
+      const corners = [
+        { x: 0, y: 0 },
+        { x: width, y: 0 },
+        { x: 0, y: height },
+        { x: width, y: height }
+      ];
+      let maxDistSq = 0;
+      for (const corner of corners) {
+        const distSq = (corner.x - origin.x) ** 2 + (corner.y - origin.y) ** 2;
+        if (distSq > maxDistSq) {
+          maxDistSq = distSq;
+        }
+      }
+      const maxRadius = Math.sqrt(maxDistSq) + strokeWidth / 2;
+      const graphics = new Graphics();
+      graphics.blendMode = blendMode;
+      targetContainer.addChild(graphics);
+      this.circles.push({
+        graphics,
+        startTime: performance.now(),
+        maxRadius,
+        strokeWidth,
+        color,
+        origin: { ...origin },
+        opacity,
+        container: targetContainer
+      });
     }
     render() {
       const now = performance.now();
@@ -26619,70 +26756,59 @@ void main(void)\r
         const elapsed = now - circle.startTime;
         const progress = Math.min(elapsed / ANIMATION_DURATION, 1);
         circle.graphics.clear();
-        circle.graphics.lineStyle(circle.strokeWidth, circle.color);
+        circle.graphics.lineStyle(
+          circle.strokeWidth,
+          circle.color,
+          circle.opacity || LEFT_CIRCLE_OPACITY
+        );
         circle.graphics.drawCircle(0, 0, circle.maxRadius * progress);
         circle.graphics.x = circle.origin.x;
         circle.graphics.y = circle.origin.y;
         if (progress >= 1) {
-          this.container.removeChild(circle.graphics);
+          circle.container.removeChild(circle.graphics);
+          circle.graphics.destroy();
           return false;
         }
         return true;
       });
     }
-    addCircle(note, velocity, _x, _y) {
-      let origin, color;
-      if (note === LEFT_CIRCLE_NOTE) {
-        origin = this.leftOrigin;
-        color = LEFT_CIRCLE_COLOR;
-      } else if (note === RIGHT_CIRCLE_NOTE) {
-        origin = this.rightOrigin;
-        color = RIGHT_CIRCLE_COLOR;
-      } else if (note === CENTER_CIRCLE_NOTE) {
-        origin = this.centerOrigin;
-        color = CENTER_CIRCLE_COLOR;
-      } else {
-        return;
-      }
-      const width = this.app.renderer.width;
-      const height = this.app.renderer.height;
-      const strokeWidth = width * 0.01;
-      const maxRadius = Math.max(
-        Math.sqrt(Math.pow(width, 2) + Math.pow(height, 2)) + strokeWidth,
-        Math.sqrt(Math.pow(origin.x, 2) + Math.pow(origin.y, 2)) + strokeWidth,
-        Math.sqrt(Math.pow(width - origin.x, 2) + Math.pow(height - origin.y, 2)) + strokeWidth
-      );
-      const graphics = new Graphics();
-      graphics.blendMode = BLEND_MODES.SCREEN;
-      this.container.addChild(graphics);
-      this.circles.push({
-        graphics,
-        startTime: performance.now(),
-        maxRadius,
-        strokeWidth,
-        color,
-        origin: { ...origin }
-      });
-    }
-    setBlendMode(_blendMode) {
-    }
     setBackgroundColor(color) {
-      this.backgroundEffect.setColor(color);
+      if (this.backgroundEffect) {
+        this.backgroundEffect.setColor(color);
+      }
+      this.config.backgroundColor = color;
     }
-    resize(width, height) {
-      this.backgroundEffect.resize(width, height);
+    resize(_width, _height) {
+      if (this.backgroundEffect) {
+        this.backgroundEffect.resize(this.app.renderer.width, this.app.renderer.height);
+      }
       this.updateOrigins();
     }
     cleanup() {
       this.circles.forEach((circle) => {
-        this.container.removeChild(circle.graphics);
+        circle.container.removeChild(circle.graphics);
+        circle.graphics.destroy();
       });
       this.circles = [];
+      if (this.centerCircle) {
+        this.container.removeChild(this.centerCircle);
+        this.centerCircle.destroy();
+      }
+      if (this.backgroundEffect) {
+        this.backgroundEffect.cleanup();
+      }
+      if (this.leftCirclesContainer) {
+        this.leftCirclesContainer.destroy();
+      }
+      if (this.rightCirclesContainer) {
+        this.rightCirclesContainer.destroy();
+      }
       super.cleanup();
     }
   };
 
   // src/visualizations/Circlesquares.ts
+  var DEFAULT_BACKGROUND_COLOR2 = "#ED6A5A";
   var CIRCLE_BASE_COLOR = 15559258;
   var SQUARE_BASE_COLOR = 2241339;
   var CIRCLE_BASE_SIZE_PCT = 0.25;
@@ -26715,6 +26841,7 @@ void main(void)\r
       this.firstSquareDrawn = false;
       this.rotatingSquares = [];
       this.container.removeChildren();
+      this.backgroundEffect = new BackgroundEffect(this.container, this.app, this.config.backgroundColor || DEFAULT_BACKGROUND_COLOR2);
     }
     addCircle(note, velocity, _x, _y) {
       const w2 = this.app.renderer.width;
@@ -26777,11 +26904,31 @@ void main(void)\r
         return true;
       });
     }
+    setBackgroundColor(color) {
+      if (this.backgroundEffect) {
+        this.backgroundEffect.setColor(color);
+      }
+      this.config.backgroundColor = color;
+    }
+    resize(_width, _height) {
+      if (this.backgroundEffect) {
+        this.backgroundEffect.resize(this.app.renderer.width, this.app.renderer.height);
+      }
+    }
+    onMidiMessage(status, note, velocity, _portName) {
+      if ((status & 240) === 144 && velocity > 0) {
+        this.addCircle(note, velocity, 0, 0);
+      }
+    }
     cleanup() {
       this.container.removeChildren();
       this.rotatingSquares = [];
       this.firstCircleDrawn = false;
       this.firstSquareDrawn = false;
+      if (this.backgroundEffect) {
+        this.backgroundEffect.cleanup();
+      }
+      super.cleanup();
     }
   };
 
@@ -26872,10 +27019,7 @@ void main(void)\r
     }
     initializeVisualization() {
       this.visualizationManager = new VisualizationManager(this.app.stage, this.app);
-      this.setVisualization(new RadiatingCircles(), {
-        backgroundColor: "#0B1019",
-        blendMode: BLEND_MODES.SCREEN
-      });
+      this.setVisualization(new RadiatingCircles(), {});
     }
     handleResize() {
       this.syncRendererToCanvas();
@@ -26893,31 +27037,22 @@ void main(void)\r
     handleVisualizationChange(visualizationName) {
       switch (visualizationName) {
         case "radiating-circles":
-          this.setVisualization(new RadiatingCircles(), {
-            backgroundColor: "#0B1019",
-            blendMode: BLEND_MODES.SCREEN
-          });
+          this.setVisualization(new RadiatingCircles(), {});
           break;
         case "circlesquares":
-          this.setVisualization(new Circlesquares(), {
-            backgroundColor: "#ED6A5A"
-          });
+          this.setVisualization(new Circlesquares(), {});
           break;
         default:
           console.warn(`Unknown visualization: ${visualizationName}`);
       }
     }
     handleMIDI(data) {
-      if (!data.portName?.includes("IAC Driver"))
-        return;
-      const [status, note, velocity] = data.message;
-      if ((status & 240) === 144 && velocity > 0) {
+      const { message, portName } = data;
+      const [status, data1, data2] = message;
+      if ((status & 240) === 144 && data2 > 0) {
         const visualization = this.visualizationManager.getCurrentVisualization();
-        if (visualization && typeof visualization.addCircle === "function") {
-          const { width, height } = this.app.renderer;
-          const x2 = width / 2 + (note === 36 ? -width / 6 : width / 6);
-          const y2 = height / 2;
-          visualization.addCircle(note, velocity, x2, y2);
+        if (visualization && typeof visualization.onMidiMessage === "function") {
+          visualization.onMidiMessage(status, data1, data2, portName);
         }
       }
     }

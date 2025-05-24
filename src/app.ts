@@ -69,10 +69,7 @@ export class MIDIVisualizer {
 
   private initializeVisualization(): void {
     this.visualizationManager = new VisualizationManager(this.app.stage, this.app);
-    this.setVisualization(new RadiatingCircles(), {
-      backgroundColor: '#0B1019',
-      blendMode: PIXI.BLEND_MODES.SCREEN
-    });
+    this.setVisualization(new RadiatingCircles(), {});
   }
 
   private handleResize(): void {
@@ -93,15 +90,10 @@ export class MIDIVisualizer {
   private handleVisualizationChange(visualizationName: string): void {
     switch (visualizationName) {
       case 'radiating-circles':
-        this.setVisualization(new RadiatingCircles(), {
-          backgroundColor: '#0B1019',
-          blendMode: PIXI.BLEND_MODES.SCREEN
-        });
+        this.setVisualization(new RadiatingCircles(), {});
         break;
       case 'circlesquares':
-        this.setVisualization(new Circlesquares(), {
-          backgroundColor: '#ED6A5A',
-        });
+        this.setVisualization(new Circlesquares(), {});
         break;
       default:
         console.warn(`Unknown visualization: ${visualizationName}`);
@@ -109,16 +101,19 @@ export class MIDIVisualizer {
   }
 
   private handleMIDI(data: any): void {
-    if (!data.portName?.includes('IAC Driver')) return;
+    // We already have portName in data from midi-bridge.js
+    const { message, portName } = data;
+    const [status, data1, data2] = message; // data1 is note, data2 is velocity
 
-    const [status, note, velocity] = data.message;
-    if ((status & 0xF0) === 144 && velocity > 0) {
+    // Optional: Filter for specific IAC Driver buses if needed, or handle all.
+    // For now, let's assume RadiatingCircles will know how to map portName.
+    // if (!portName?.includes('IAC Driver')) return;
+
+    // Check for Note On message (status 144-159) and velocity > 0
+    if ((status & 0xF0) === 144 && data2 > 0) {
       const visualization = this.visualizationManager.getCurrentVisualization();
-      if (visualization && typeof visualization.addCircle === 'function') {
-        const { width, height } = this.app.renderer;
-        const x = width / 2 + (note === 36 ? -width/6 : width/6);
-        const y = height / 2;
-        visualization.addCircle(note, velocity, x, y);
+      if (visualization && typeof visualization.onMidiMessage === 'function') {
+        visualization.onMidiMessage(status, data1, data2, portName);
       }
     }
   }
