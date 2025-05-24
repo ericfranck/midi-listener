@@ -66,13 +66,19 @@ export class RadiatingCircles extends BaseVisualization {
   protected setup(): void {
     // Create layers for proper ordering
     this.container.removeChildren();
+    this.container.x = 0;
+    this.container.y = 0;
     
     const bgColor = this.config.backgroundColor || DEFAULT_BACKGROUND_COLOR;
     this.backgroundEffect = new BackgroundEffect(this.container, this.app, bgColor);
     
     // Create containers for each layer
     this.leftCirclesContainer = new PIXI.Container();
+    this.leftCirclesContainer.x = 0;
+    this.leftCirclesContainer.y = 0;
     this.rightCirclesContainer = new PIXI.Container();
+    this.rightCirclesContainer.x = 0;
+    this.rightCirclesContainer.y = 0;
     this.container.addChild(this.leftCirclesContainer);  // Layer 1
     this.container.addChild(this.rightCirclesContainer); // Layer 2
     
@@ -86,15 +92,18 @@ export class RadiatingCircles extends BaseVisualization {
       this.centerCircle.destroy();
     }
 
-    const { width, height } = this.app.renderer;
+    const width = this.app.screen.width;
+    const height = this.app.screen.height;
+    const centerX = width / 2;
+    const centerY = height / 2;
     const baseRadius = Math.min(width, height) * CENTER_CIRCLE_RADIUS_PCT;
 
     this.centerCircle = new PIXI.Graphics();
     this.centerCircle.beginFill(CENTER_CIRCLE_COLOR, CENTER_CIRCLE_OPACITY);
     this.centerCircle.drawCircle(0, 0, baseRadius * this.currentCenterScale);
     this.centerCircle.endFill();
-    this.centerCircle.x = this.centerOrigin.x;
-    this.centerCircle.y = this.centerOrigin.y;
+    this.centerCircle.x = centerX;
+    this.centerCircle.y = centerY;
     this.centerCircle.blendMode = CENTER_CIRCLE_BLEND_MODE;
     
     // Add center circle at the top
@@ -102,8 +111,8 @@ export class RadiatingCircles extends BaseVisualization {
   }
 
   private updateOrigins(): void {
-    const width = this.app.renderer.width;
-    const height = this.app.renderer.height;
+    const width = this.app.screen.width;
+    const height = this.app.screen.height;
     
     const spacing = width / 3; 
     const canvasCenterX = width / 2;
@@ -143,7 +152,8 @@ export class RadiatingCircles extends BaseVisualization {
       );
 
       // Update the circle size
-      const { width, height } = this.app.renderer;
+      const width = this.app.screen.width;
+      const height = this.app.screen.height;
       const baseRadius = Math.min(width, height) * CENTER_CIRCLE_RADIUS_PCT;
       this.centerCircle.clear();
       this.centerCircle.beginFill(CENTER_CIRCLE_COLOR, CENTER_CIRCLE_OPACITY);
@@ -178,7 +188,8 @@ export class RadiatingCircles extends BaseVisualization {
       return;
     }
 
-    const { width, height } = this.app.renderer;
+    const width = this.app.screen.width;
+    const height = this.app.screen.height;
     const strokeWidth = Math.max(
       EXPANDING_CIRCLE_MIN_STROKE_WIDTH, 
       Math.min(width, height) * EXPANDING_CIRCLE_STROKE_WIDTH_PCT
@@ -251,10 +262,45 @@ export class RadiatingCircles extends BaseVisualization {
   }
 
   resize(_width: number, _height: number): void {
+    // Update background
     if (this.backgroundEffect) {
-      this.backgroundEffect.resize(this.app.renderer.width, this.app.renderer.height);
+      this.backgroundEffect.resize(this.app.screen.width, this.app.screen.height);
     }
+
+    // Update origins and center circle
     this.updateOrigins();
+    this.setupCenterCircle();
+
+    // Update existing circles
+    const width = this.app.screen.width;
+    const height = this.app.screen.height;
+    const strokeWidth = Math.max(
+      EXPANDING_CIRCLE_MIN_STROKE_WIDTH, 
+      Math.min(width, height) * EXPANDING_CIRCLE_STROKE_WIDTH_PCT
+    );
+
+    this.circles.forEach(circle => {
+      // Recalculate max radius for the new dimensions
+      const corners = [
+        { x: 0, y: 0 },
+        { x: width, y: 0 },
+        { x: 0, y: height },
+        { x: width, y: height },
+      ];
+      let maxDistSq = 0;
+      for (const corner of corners) {
+        const distSq = (corner.x - circle.origin.x) ** 2 + (corner.y - circle.origin.y) ** 2;
+        if (distSq > maxDistSq) {
+          maxDistSq = distSq;
+        }
+      }
+      circle.maxRadius = Math.sqrt(maxDistSq) + strokeWidth / 2;
+      circle.strokeWidth = strokeWidth;
+
+      // Update circle position
+      circle.graphics.x = circle.origin.x;
+      circle.graphics.y = circle.origin.y;
+    });
   }
 
   cleanup(): void {

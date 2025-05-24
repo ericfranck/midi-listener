@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PIXI Minimal Test</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #000;
+      overflow: hidden;
+    }
+    #pixi-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      background: #222;
+      box-shadow: 0 0 32px #000a;
+    }
+  </style>
+</head>
+<body>
+  <div id="pixi-container"></div>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.2.4/dist/pixi.min.js"></script>
+  <script>
+    const aspectRatio = 16 / 10;
+    function getCanvasSize() {
+      const container = document.getElementById('pixi-container');
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      let width, height;
+      if (containerWidth / containerHeight > aspectRatio) {
+        height = containerHeight;
+        width = height * aspectRatio;
+      } else {
+        width = containerWidth;
+        height = width / aspectRatio;
+      }
+      return { width, height };
+    }
+
+    const { width, height } = getCanvasSize();
+    const app = new PIXI.Application({
+      width,
+      height,
+      backgroundColor: 0x222222,
+      antialias: true,
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true
+    });
+
+    document.getElementById('pixi-container').appendChild(app.view);
+
+    // Draw a green rectangle covering the whole area
+    const rect = new PIXI.Graphics();
+    rect.lineStyle(4, 0x00FF00, 1);
+    rect.drawRect(0, 0, width, height);
+    app.stage.addChild(rect);
+
+    // Draw a red dot at (0,0)
+    const redDot = new PIXI.Graphics();
+    redDot.beginFill(0xFF0000);
+    redDot.drawCircle(0, 0, 10);
+    redDot.endFill();
+    redDot.x = 0;
+    redDot.y = 0;
+    app.stage.addChild(redDot);
+
+    // Draw a blue dot at (width, height)
+    const blueDot = new PIXI.Graphics();
+    blueDot.beginFill(0x0000FF);
+    blueDot.drawCircle(0, 0, 10);
+    blueDot.endFill();
+    blueDot.x = width;
+    blueDot.y = height;
+    app.stage.addChild(blueDot);
+
+    // Draw a yellow dot at the center
+    const yellowDot = new PIXI.Graphics();
+    yellowDot.beginFill(0xFFFF00);
+    yellowDot.drawCircle(0, 0, 10);
+    yellowDot.endFill();
+    yellowDot.x = width / 2;
+    yellowDot.y = height / 2;
+    app.stage.addChild(yellowDot);
+
+    // Log sizes
+    console.log('PIXI VERSION:', PIXI.VERSION);
+    console.log('width:', width, 'height:', height);
+    console.log('renderer:', app.renderer.width, app.renderer.height);
+    console.log('app.view:', app.view.width, app.view.height);
+    console.log('getBoundingClientRect:', app.view.getBoundingClientRect());
+  </script>
+</body>
+</html> 

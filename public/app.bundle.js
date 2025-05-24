@@ -11679,7 +11679,7 @@ void main(void)
      */
     run(options) {
       const { renderer } = this;
-      renderer.runners.init.emit(renderer.options), options.hello && console.log(`PixiJS 7.4.0 - ${renderer.rendererLogId} - https://pixijs.com`), renderer.resize(renderer.screen.width, renderer.screen.height);
+      renderer.runners.init.emit(renderer.options), options.hello && console.log(`PixiJS 7.4.3 - ${renderer.rendererLogId} - https://pixijs.com`), renderer.resize(renderer.screen.width, renderer.screen.height);
     }
     destroy() {
     }
@@ -19094,7 +19094,8 @@ void main()
       if (keys.forEach((key2) => {
         this._cacheMap.set(key2, cachedAssets);
       }), cacheKeys.forEach((key2) => {
-        this._cache.has(key2) && this._cache.get(key2) !== value && console.warn("[Cache] already has key:", key2), this._cache.set(key2, cacheableAssets[key2]);
+        const val = cacheableAssets ? cacheableAssets[key2] : value;
+        this._cache.has(key2) && this._cache.get(key2) !== val && console.warn("[Cache] already has key:", key2), this._cache.set(key2, cacheableAssets[key2]);
       }), value instanceof Texture) {
         const texture = value;
         keys.forEach((key2) => {
@@ -19345,9 +19346,9 @@ ${e2}`);
 })();
 `;
   var WORKER_URL = null;
-  var WorkerInstance = class extends Worker {
+  var WorkerInstance = class {
     constructor() {
-      WORKER_URL || (WORKER_URL = URL.createObjectURL(new Blob([WORKER_CODE], { type: "application/javascript" }))), super(WORKER_URL);
+      WORKER_URL || (WORKER_URL = URL.createObjectURL(new Blob([WORKER_CODE], { type: "application/javascript" }))), this.worker = new Worker(WORKER_URL);
     }
   };
   WorkerInstance.revokeObjectURL = function() {
@@ -19383,9 +19384,9 @@ ${e2}`);
 })();
 `;
   var WORKER_URL2 = null;
-  var WorkerInstance2 = class extends Worker {
+  var WorkerInstance2 = class {
     constructor() {
-      WORKER_URL2 || (WORKER_URL2 = URL.createObjectURL(new Blob([WORKER_CODE2], { type: "application/javascript" }))), super(WORKER_URL2);
+      WORKER_URL2 || (WORKER_URL2 = URL.createObjectURL(new Blob([WORKER_CODE2], { type: "application/javascript" }))), this.worker = new Worker(WORKER_URL2);
     }
   };
   WorkerInstance2.revokeObjectURL = function() {
@@ -19401,7 +19402,7 @@ ${e2}`);
     }
     isImageBitmapSupported() {
       return this._isImageBitmapSupported !== void 0 ? this._isImageBitmapSupported : (this._isImageBitmapSupported = new Promise((resolve2) => {
-        const worker = new WorkerInstance();
+        const { worker } = new WorkerInstance();
         worker.addEventListener("message", (event) => {
           worker.terminate(), WorkerInstance.revokeObjectURL(), resolve2(event.data);
         });
@@ -19416,7 +19417,7 @@ ${e2}`);
     getWorker() {
       MAX_WORKERS === void 0 && (MAX_WORKERS = navigator.hardwareConcurrency || 4);
       let worker = this.workerPool.pop();
-      return !worker && this._createdWorkers < MAX_WORKERS && (this._createdWorkers++, worker = new WorkerInstance2(), worker.addEventListener("message", (event) => {
+      return !worker && this._createdWorkers < MAX_WORKERS && (this._createdWorkers++, worker = new WorkerInstance2().worker, worker.addEventListener("message", (event) => {
         this.complete(event.data), this.returnWorker(event.target), this.next();
       })), worker;
     }
@@ -19977,7 +19978,7 @@ Please use Assets.add({ alias, src, data, format, loadParser }) instead.`), asse
     }
     buildResolvedAsset(formattedAsset, data) {
       const { aliases, data: assetData, loadParser, format: format2 } = data;
-      return (this._basePath || this._rootPath) && (formattedAsset.src = lib_exports.path.toAbsolute(formattedAsset.src, this._basePath, this._rootPath)), formattedAsset.alias = aliases ?? formattedAsset.alias ?? [formattedAsset.src], formattedAsset.src = this._appendDefaultSearchParams(formattedAsset.src), formattedAsset.data = { ...assetData || {}, ...formattedAsset.data }, formattedAsset.loadParser = loadParser ?? formattedAsset.loadParser, formattedAsset.format = format2 ?? lib_exports.path.extname(formattedAsset.src).slice(1), formattedAsset.srcs = formattedAsset.src, formattedAsset.name = formattedAsset.alias, formattedAsset;
+      return (this._basePath || this._rootPath) && (formattedAsset.src = lib_exports.path.toAbsolute(formattedAsset.src, this._basePath, this._rootPath)), formattedAsset.alias = aliases ?? formattedAsset.alias ?? [formattedAsset.src], formattedAsset.src = this._appendDefaultSearchParams(formattedAsset.src), formattedAsset.data = { ...assetData || {}, ...formattedAsset.data }, formattedAsset.loadParser = loadParser ?? formattedAsset.loadParser, formattedAsset.format = format2 ?? formattedAsset.format ?? lib_exports.path.extname(formattedAsset.src).slice(1), formattedAsset.srcs = formattedAsset.src, formattedAsset.name = formattedAsset.alias, formattedAsset;
     }
   };
 
@@ -20493,15 +20494,15 @@ Please use Assets.add({ alias, src, data, format, loadParser }) instead.`), asse
   var extensions2;
   function getCompressedTextureExtensions() {
     extensions2 = {
+      bptc: storedGl.getExtension("EXT_texture_compression_bptc"),
+      astc: storedGl.getExtension("WEBGL_compressed_texture_astc"),
+      etc: storedGl.getExtension("WEBGL_compressed_texture_etc"),
       s3tc: storedGl.getExtension("WEBGL_compressed_texture_s3tc"),
       s3tc_sRGB: storedGl.getExtension("WEBGL_compressed_texture_s3tc_srgb"),
       /* eslint-disable-line camelcase */
-      etc: storedGl.getExtension("WEBGL_compressed_texture_etc"),
-      etc1: storedGl.getExtension("WEBGL_compressed_texture_etc1"),
       pvrtc: storedGl.getExtension("WEBGL_compressed_texture_pvrtc") || storedGl.getExtension("WEBKIT_WEBGL_compressed_texture_pvrtc"),
-      atc: storedGl.getExtension("WEBGL_compressed_texture_atc"),
-      astc: storedGl.getExtension("WEBGL_compressed_texture_astc"),
-      bptc: storedGl.getExtension("EXT_texture_compression_bptc")
+      etc1: storedGl.getExtension("WEBGL_compressed_texture_etc1"),
+      atc: storedGl.getExtension("WEBGL_compressed_texture_atc")
     };
   }
   var detectCompressedTextures = {
@@ -20999,6 +21000,7 @@ Please use Assets.add({ alias, src, data, format, loadParser }) instead.`), asse
   extensions.add(loadKTX);
 
   // node_modules/@pixi/compressed-textures/lib/loaders/resolveCompressedTextureUrl.mjs
+  var knownFormats = ["s3tc", "s3tc_sRGB", "etc", "etc1", "pvrtc", "atc", "astc", "bptc"];
   var resolveCompressedTextureUrl = {
     extension: ExtensionType.ResolveParser,
     test: (value) => {
@@ -21006,22 +21008,13 @@ Please use Assets.add({ alias, src, data, format, loadParser }) instead.`), asse
       return ["basis", "ktx", "dds"].includes(extension);
     },
     parse: (value) => {
-      const extension = lib_exports.path.extname(value).slice(1);
-      if (extension === "ktx") {
-        const extensions22 = [
-          ".s3tc.ktx",
-          ".s3tc_sRGB.ktx",
-          ".etc.ktx",
-          ".etc1.ktx",
-          ".pvrt.ktx",
-          ".atc.ktx",
-          ".astc.ktx",
-          ".bptc.ktx"
-        ];
-        if (extensions22.some((ext) => value.endsWith(ext)))
+      const parts = value.split("."), extension = parts.pop();
+      if (["ktx", "dds"].includes(extension)) {
+        const textureFormat = parts.pop();
+        if (knownFormats.includes(textureFormat))
           return {
             resolution: parseFloat(settings.RETINA_PREFIX.exec(value)?.[1] ?? "1"),
-            format: extensions22.find((ext) => value.endsWith(ext)),
+            format: textureFormat,
             src: value
           };
       }
@@ -25062,7 +25055,21 @@ void main(void)
   var Spritesheet = _Spritesheet;
 
   // node_modules/@pixi/spritesheet/lib/spritesheetAsset.mjs
-  var validImages = ["jpg", "png", "jpeg", "avif", "webp"];
+  var validImages = [
+    "jpg",
+    "png",
+    "jpeg",
+    "avif",
+    "webp",
+    "s3tc",
+    "s3tc_sRGB",
+    "etc",
+    "etc1",
+    "pvrtc",
+    "atc",
+    "astc",
+    "bptc"
+  ];
   function getCacheableAssets(keys, asset, ignoreMultiPack) {
     const out = {};
     if (keys.forEach((key) => {
@@ -26635,10 +26642,16 @@ void main(void)\r
     }
     setup() {
       this.container.removeChildren();
+      this.container.x = 0;
+      this.container.y = 0;
       const bgColor = this.config.backgroundColor || DEFAULT_BACKGROUND_COLOR;
       this.backgroundEffect = new BackgroundEffect(this.container, this.app, bgColor);
       this.leftCirclesContainer = new Container();
+      this.leftCirclesContainer.x = 0;
+      this.leftCirclesContainer.y = 0;
       this.rightCirclesContainer = new Container();
+      this.rightCirclesContainer.x = 0;
+      this.rightCirclesContainer.y = 0;
       this.container.addChild(this.leftCirclesContainer);
       this.container.addChild(this.rightCirclesContainer);
       this.updateOrigins();
@@ -26649,20 +26662,23 @@ void main(void)\r
         this.container.removeChild(this.centerCircle);
         this.centerCircle.destroy();
       }
-      const { width, height } = this.app.renderer;
+      const width = this.app.screen.width;
+      const height = this.app.screen.height;
+      const centerX = width / 2;
+      const centerY = height / 2;
       const baseRadius = Math.min(width, height) * CENTER_CIRCLE_RADIUS_PCT;
       this.centerCircle = new Graphics();
       this.centerCircle.beginFill(CENTER_CIRCLE_COLOR, CENTER_CIRCLE_OPACITY);
       this.centerCircle.drawCircle(0, 0, baseRadius * this.currentCenterScale);
       this.centerCircle.endFill();
-      this.centerCircle.x = this.centerOrigin.x;
-      this.centerCircle.y = this.centerOrigin.y;
+      this.centerCircle.x = centerX;
+      this.centerCircle.y = centerY;
       this.centerCircle.blendMode = CENTER_CIRCLE_BLEND_MODE;
       this.container.addChild(this.centerCircle);
     }
     updateOrigins() {
-      const width = this.app.renderer.width;
-      const height = this.app.renderer.height;
+      const width = this.app.screen.width;
+      const height = this.app.screen.height;
       const spacing = width / 3;
       const canvasCenterX = width / 2;
       const canvasCenterY = height / 2;
@@ -26686,7 +26702,8 @@ void main(void)\r
           CENTER_CIRCLE_MIN_SCALE,
           Math.min(CENTER_CIRCLE_MAX_SCALE, this.currentCenterScale)
         );
-        const { width: width2, height: height2 } = this.app.renderer;
+        const width2 = this.app.screen.width;
+        const height2 = this.app.screen.height;
         const baseRadius = Math.min(width2, height2) * CENTER_CIRCLE_RADIUS_PCT;
         this.centerCircle.clear();
         this.centerCircle.beginFill(CENTER_CIRCLE_COLOR, CENTER_CIRCLE_OPACITY);
@@ -26717,7 +26734,8 @@ void main(void)\r
       if (!origin || color === void 0 || blendMode === void 0 || opacity === void 0 || !targetContainer) {
         return;
       }
-      const { width, height } = this.app.renderer;
+      const width = this.app.screen.width;
+      const height = this.app.screen.height;
       const strokeWidth = Math.max(
         EXPANDING_CIRCLE_MIN_STROKE_WIDTH,
         Math.min(width, height) * EXPANDING_CIRCLE_STROKE_WIDTH_PCT
@@ -26780,9 +26798,35 @@ void main(void)\r
     }
     resize(_width, _height) {
       if (this.backgroundEffect) {
-        this.backgroundEffect.resize(this.app.renderer.width, this.app.renderer.height);
+        this.backgroundEffect.resize(this.app.screen.width, this.app.screen.height);
       }
       this.updateOrigins();
+      this.setupCenterCircle();
+      const width = this.app.screen.width;
+      const height = this.app.screen.height;
+      const strokeWidth = Math.max(
+        EXPANDING_CIRCLE_MIN_STROKE_WIDTH,
+        Math.min(width, height) * EXPANDING_CIRCLE_STROKE_WIDTH_PCT
+      );
+      this.circles.forEach((circle) => {
+        const corners = [
+          { x: 0, y: 0 },
+          { x: width, y: 0 },
+          { x: 0, y: height },
+          { x: width, y: height }
+        ];
+        let maxDistSq = 0;
+        for (const corner of corners) {
+          const distSq = (corner.x - circle.origin.x) ** 2 + (corner.y - circle.origin.y) ** 2;
+          if (distSq > maxDistSq) {
+            maxDistSq = distSq;
+          }
+        }
+        circle.maxRadius = Math.sqrt(maxDistSq) + strokeWidth / 2;
+        circle.strokeWidth = strokeWidth;
+        circle.graphics.x = circle.origin.x;
+        circle.graphics.y = circle.origin.y;
+      });
     }
     cleanup() {
       this.circles.forEach((circle) => {
@@ -26989,7 +27033,8 @@ void main(void)\r
         height,
         backgroundColor: 725017,
         antialias: true,
-        resolution: window.devicePixelRatio || 1
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true
       });
       const container = document.getElementById("pixi-container");
       if (!container) {
@@ -27009,11 +27054,18 @@ void main(void)\r
         console.log("WebSocket disconnected");
       };
       this.ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === "visualization_change") {
-          this.handleVisualizationChange(data.visualization);
-        } else {
-          this.handleMIDI(data);
+        try {
+          const data = JSON.parse(event.data);
+          console.log("WebSocket message received:", data);
+          if (data.type === "visualization_change") {
+            this.handleVisualizationChange(data.visualization);
+          } else if (data.message) {
+            this.handleMIDI(data);
+          } else {
+            console.warn("Received message without expected format:", data);
+          }
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
         }
       };
     }
@@ -27023,16 +27075,20 @@ void main(void)\r
     }
     handleResize() {
       this.syncRendererToCanvas();
-      const { width, height } = this.getCanvasSize();
-      this.visualizationManager.resize(width, height);
+      if (this.visualizationManager) {
+        const { width, height } = this.getCanvasSize();
+        this.visualizationManager.resize(width, height);
+      }
     }
     syncRendererToCanvas() {
-      const canvas = document.getElementById("pixi-canvas");
-      if (canvas) {
-        const width = canvas.offsetWidth;
-        const height = canvas.offsetHeight;
-        this.app.renderer.resize(width, height);
-      }
+      const { width, height } = this.getCanvasSize();
+      this.app.renderer.resize(width, height);
+      this.app.view.style.width = width + "px";
+      this.app.view.style.height = height + "px";
+      console.log("[syncRendererToCanvas] getCanvasSize:", width, height);
+      console.log("[syncRendererToCanvas] renderer size:", this.app.renderer.width, this.app.renderer.height);
+      console.log("[syncRendererToCanvas] canvas style:", this.app.view.style.width, this.app.view.style.height);
+      console.log("[syncRendererToCanvas] devicePixelRatio:", window.devicePixelRatio || 1);
     }
     handleVisualizationChange(visualizationName) {
       switch (visualizationName) {
@@ -27048,11 +27104,11 @@ void main(void)\r
     }
     handleMIDI(data) {
       const { message, portName } = data;
-      const [status, data1, data2] = message;
-      if ((status & 240) === 144 && data2 > 0) {
+      if (message && message._type === "noteon" && message.velocity > 0) {
         const visualization = this.visualizationManager.getCurrentVisualization();
         if (visualization && typeof visualization.onMidiMessage === "function") {
-          visualization.onMidiMessage(status, data1, data2, portName);
+          const status = 144 + (message.channel || 0);
+          visualization.onMidiMessage(status, message.note, message.velocity, portName);
         }
       }
     }
@@ -27062,9 +27118,19 @@ void main(void)\r
     getCanvasSize() {
       const container = document.getElementById("pixi-container");
       if (!container) {
-        return { width: 800, height: 600 };
+        return { width: window.innerWidth, height: window.innerHeight };
       }
-      const { width, height } = container.getBoundingClientRect();
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      const aspectRatio = 16 / 10;
+      let width, height;
+      if (containerWidth / containerHeight > aspectRatio) {
+        height = containerHeight;
+        width = height * aspectRatio;
+      } else {
+        width = containerWidth;
+        height = width / aspectRatio;
+      }
       return { width, height };
     }
     cleanup() {

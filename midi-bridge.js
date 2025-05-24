@@ -1,4 +1,4 @@
-const midi = require('midi');
+const easymidi = require('easymidi');
 const WebSocket = require('ws');
 const express = require('express');
 const path = require('path');
@@ -10,16 +10,18 @@ app.use('/dist', express.static(path.join(__dirname, 'dist')));
 
 // Set up MIDI inputs for all available ports
 const inputs = [];
-const portCount = new midi.Input().getPortCount();
+const portNames = easymidi.getInputs();
 
-console.log('Available MIDI ports:');
-for (let i = 0; i < portCount; i++) {
-    const input = new midi.Input();
-    const portName = input.getPortName(i);
-    input.openPort(i);
-    console.log(`${i}: ${portName}`);
-    inputs.push({ input, portName });
-}
+console.log('\nAvailable MIDI ports:');
+portNames.forEach((portName, i) => {
+    try {
+        const input = new easymidi.Input(portName);
+        console.log(`✓ ${portName}`);
+        inputs.push({ input, portName });
+    } catch (error) {
+        console.error(`✗ ${portName} (Failed to open)`);
+    }
+});
 
 // Create WebSocket server
 const wss = new WebSocket.Server({ port: 8080 });
@@ -28,14 +30,14 @@ const wss = new WebSocket.Server({ port: 8080 });
 const clients = new Set();
 
 wss.on('connection', (ws) => {
-    console.log('Browser connected');
+    console.log('\nBrowser connected');
     clients.add(ws);
 
     ws.on('message', (message) => {
         try {
             const data = JSON.parse(message);
-            // If it's a visualization control message, broadcast to all clients
             if (data.type === 'visualization_change') {
+                console.log(`Visualization changed to: ${data.visualization}`);
                 clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify(data));
@@ -55,11 +57,14 @@ wss.on('connection', (ws) => {
 
 // Handle MIDI messages for each input
 inputs.forEach(({ input, portName }) => {
-    input.on('message', (deltaTime, message) => {
-        console.log(`[${portName}] MIDI message received:`, message);
+    input.on('message', (message) => {
+        // Only log note events
+        if (message._type === 'noteon' || message._type === 'noteoff') {
+            console.log(`[${portName}] ${message._type.toUpperCase()} Note: ${message.note}, Velocity: ${message.velocity}`);
+        }
+        
         // Broadcast to all connected clients
         const data = JSON.stringify({
-            deltaTime,
             message,
             portName,
             timestamp: Date.now()
@@ -75,6 +80,6 @@ inputs.forEach(({ input, portName }) => {
 // Start Express server
 const PORT = 3000;
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-    console.log(`WebSocket server running at ws://localhost:8080`);
+    console.log(`\nServer running at http://localhost:${PORT}`);
+    console.log(`WebSocket server running at ws://localhost:8080\n`);
 }); 

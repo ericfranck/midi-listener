@@ -27,8 +27,9 @@ export class MIDIVisualizer {
       height,
       backgroundColor: 0x0B1019,
       antialias: true,
-      resolution: window.devicePixelRatio || 1
-    });
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true
+    } as any); // 'as any' to allow autoDensity for v7
 
     const container = document.getElementById('pixi-container');
     if (!container) {
@@ -42,6 +43,7 @@ export class MIDIVisualizer {
     // Ensure renderer matches actual canvas size
     this.syncRendererToCanvas();
 
+    // Add resize handler
     window.addEventListener('resize', () => this.handleResize());
   }
 
@@ -57,12 +59,19 @@ export class MIDIVisualizer {
     };
 
     this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === 'visualization_change') {
-        this.handleVisualizationChange(data.visualization);
-      } else {
-        this.handleMIDI(data);
+      try {
+        const data = JSON.parse(event.data);
+        console.log('WebSocket message received:', data);
+        
+        if (data.type === 'visualization_change') {
+          this.handleVisualizationChange(data.visualization);
+        } else if (data.message) {
+          this.handleMIDI(data);
+        } else {
+          console.warn('Received message without expected format:', data);
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
       }
     };
   }
@@ -74,17 +83,23 @@ export class MIDIVisualizer {
 
   private handleResize(): void {
     this.syncRendererToCanvas();
-    const { width, height } = this.getCanvasSize();
-    this.visualizationManager.resize(width, height);
+    if (this.visualizationManager) {
+      const { width, height } = this.getCanvasSize();
+      this.visualizationManager.resize(width, height);
+    }
   }
 
   private syncRendererToCanvas(): void {
-    const canvas = document.getElementById('pixi-canvas') as HTMLCanvasElement;
-    if (canvas) {
-      const width = canvas.offsetWidth;
-      const height = canvas.offsetHeight;
-      this.app.renderer.resize(width, height);
-    }
+    const { width, height } = this.getCanvasSize();
+    this.app.renderer.resize(width, height);
+    // Optionally set style width/height for CSS sizing
+    this.app.view.style.width = width + 'px';
+    this.app.view.style.height = height + 'px';
+    // Debug logging
+    console.log('[syncRendererToCanvas] getCanvasSize:', width, height);
+    console.log('[syncRendererToCanvas] renderer size:', this.app.renderer.width, this.app.renderer.height);
+    console.log('[syncRendererToCanvas] canvas style:', this.app.view.style.width, this.app.view.style.height);
+    console.log('[syncRendererToCanvas] devicePixelRatio:', window.devicePixelRatio || 1);
   }
 
   private handleVisualizationChange(visualizationName: string): void {
@@ -101,19 +116,15 @@ export class MIDIVisualizer {
   }
 
   private handleMIDI(data: any): void {
-    // We already have portName in data from midi-bridge.js
     const { message, portName } = data;
-    const [status, data1, data2] = message; // data1 is note, data2 is velocity
-
-    // Optional: Filter for specific IAC Driver buses if needed, or handle all.
-    // For now, let's assume RadiatingCircles will know how to map portName.
-    // if (!portName?.includes('IAC Driver')) return;
-
-    // Check for Note On message (status 144-159) and velocity > 0
-    if ((status & 0xF0) === 144 && data2 > 0) {
+    
+    // easymidi provides a more structured message format
+    if (message && message._type === 'noteon' && message.velocity > 0) {
       const visualization = this.visualizationManager.getCurrentVisualization();
       if (visualization && typeof visualization.onMidiMessage === 'function') {
-        visualization.onMidiMessage(status, data1, data2, portName);
+        // Convert easymidi format to the format expected by visualizations
+        const status = 144 + (message.channel || 0);
+        visualization.onMidiMessage(status, message.note, message.velocity, portName);
       }
     }
   }
@@ -123,12 +134,28 @@ export class MIDIVisualizer {
   }
 
   private getCanvasSize(): { width: number; height: number } {
+    // Get the container size
     const container = document.getElementById('pixi-container');
     if (!container) {
-      return { width: 800, height: 600 };
+      return { width: window.innerWidth, height: window.innerHeight };
     }
 
-    const { width, height } = container.getBoundingClientRect();
+    // Calculate size maintaining aspect ratio
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    const aspectRatio = 16 / 10;
+
+    let width, height;
+    if (containerWidth / containerHeight > aspectRatio) {
+      // Container is wider than aspect ratio
+      height = containerHeight;
+      width = height * aspectRatio;
+    } else {
+      // Container is taller than aspect ratio
+      width = containerWidth;
+      height = width / aspectRatio;
+    }
+
     return { width, height };
   }
 
